@@ -27,6 +27,7 @@ public static class HcbParser
 
         return new ScriptMetadata
         {
+            MetadataOffset = offset,
             EntryPointAddress = entryPoint,
             GlobalCount = globalCount,
             VolatileGlobalCount = volatileGlobalCount,
@@ -36,11 +37,11 @@ public static class HcbParser
         };
     }
 
-    public static List<Instruction> ParseInstructions(Reader reader, ScriptMetadata metadata)
+    public static List<Instruction> ParseCodeArea(Reader reader, ScriptMetadata metadata)
     {
         reader.SeekTo(4);
         var instructions = new List<Instruction>();
-        while (reader.Position < metadata.EntryPointAddress)
+        while (reader.Position < metadata.MetadataOffset)
         {
             var address = (uint)reader.Position;
             var opCode = (OpCodeType)reader.Read<byte>();
