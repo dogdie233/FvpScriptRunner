@@ -1,0 +1,11 @@
+# Build Folders
+bin/
+obj/
+
+# IDE caches and files
+.vs/
+.vscode/
+.idea/
+riderModule.iml
+/_ReSharper.Caches/
+*.sln.DotSettings.user
