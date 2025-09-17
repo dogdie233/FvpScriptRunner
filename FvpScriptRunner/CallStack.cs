@@ -18,7 +18,7 @@ public class CallStack
     public object Pop()
     {
         if (FrameSize == 0)
-            throw new ScriptRuntimeException("Call stack is empty.");
+            throw new StackBreakException("Call stack is empty.");
 
         var value = Stack[^1];
         Stack.RemoveAt(Stack.Count - 1);
@@ -29,7 +29,7 @@ public class CallStack
     public void SetLocal(int index, object value)
     {
         if (index >= CurrentFrame.LocalCount || index < 0)
-            throw new ScriptRuntimeException($"Invalid local index. {index}");
+            throw new StackBreakException($"Invalid local index. {index}");
         
         Stack[CurrentFrame.FrameBase + index] = value;
     }
@@ -37,7 +37,7 @@ public class CallStack
     public object GetLocal(int index)
     {
         if (index >= CurrentFrame.LocalCount || index < ~(int)CurrentFrame.ArgCount)
-            throw new ScriptRuntimeException($"Invalid local index. {index}");
+            throw new StackBreakException($"Invalid local index. {index}");
 
         return Stack[CurrentFrame.FrameBase + index];
     }
@@ -53,7 +53,7 @@ public class CallStack
     public uint PopCall()
     {
         if (FrameSize != 0)
-            throw new ScriptRuntimeException("Cannot return from function with non-empty stack.");
+            throw new StackBreakException("Cannot return from function with non-empty stack.");
         
         var prevFrame = (StackFrameSave)Stack[^(CurrentFrame.LocalCount + 1)];
         CollectionsMarshal.SetCount(Stack, Stack.Count - (CurrentFrame.LocalCount + 1 + CurrentFrame.ArgCount));
@@ -67,10 +67,8 @@ public class CallStack
     public object Peek()
     {
         if (Stack.Count == 0)
-            throw new ScriptRuntimeException("Call stack is empty.");
+            throw new StackBreakException("Call stack is empty.");
 
         return Stack[^1];
     }
-
-    public int Count => Stack.Count;
 }

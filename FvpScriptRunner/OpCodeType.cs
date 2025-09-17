@@ -2,9 +2,9 @@ namespace FvpScriptRunner;
 
 public enum OpCodeType : byte
 {
-    Nop = 0,
-    InitStack = 1,
-    Call = 2,
+    Nop,
+    InitStack,
+    Call,
     Syscall,
     Ret,
     RetV,
