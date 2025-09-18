@@ -11,7 +11,7 @@ public delegate object? SyscallDelegate(object? instance, object[] args);
 
 public class SimpleSyscallResolver : ISyscallResolver
 {
-    public record struct SyscallMethod(object? Instance, MethodInfo Method, SyscallDelegate? Delegate);
+    public record struct SyscallMethod(object? Instance, MethodInfo Method, SyscallDelegate? Delegate, bool IsVoid);
 
     private Dictionary<string, SyscallMethod> Methods { get; } = [];
 
@@ -39,7 +39,9 @@ public class SimpleSyscallResolver : ISyscallResolver
                 args[i] = Nil.Shared;
         }
 
-        return returnValue;
+        // If the method is void, return null (meaning void in the script)
+        // If the method is not void and returns null, return Nil
+        return method.IsVoid ? null : returnValue ?? Nil.Shared;
     }
 
     public SimpleSyscallResolver Register<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(T? instance) where T : class
@@ -59,15 +61,15 @@ public class SimpleSyscallResolver : ISyscallResolver
             var attributes = method.GetCustomAttributes<SyscallImplAttribute>();
 
             foreach (var attribute in attributes)
-                Methods.TryAdd(attribute.Name, new SyscallMethod(instance, method, null));
+                Methods.TryAdd(attribute.Name, new SyscallMethod(instance, method, null, method.ReturnType == typeof(void)));
         }
 
         return this;
     }
 
-    public SimpleSyscallResolver Register(string name, SyscallDelegate del)
+    public SimpleSyscallResolver Register(string name, SyscallDelegate del, bool isVoid)
     {
-        if (!Methods.TryAdd(name, new SyscallMethod(null, null!, del)))
+        if (!Methods.TryAdd(name, new SyscallMethod(null, null!, del, isVoid)))
             throw new ArgumentException($"A syscall with the name '{name}' is already registered.", nameof(name));
 
         return this;
@@ -138,7 +140,9 @@ public class SimpleSyscallResolver : ISyscallResolver
         if (method.ReturnType == typeof(void))
             il.Emit(OpCodes.Ldnull); // If void, load null as return value
         else if (method.ReturnType.IsValueType)
+        {
             il.Emit(OpCodes.Box, method.ReturnType); // Box value types
+        }
 
         il.Emit(OpCodes.Ret);
 

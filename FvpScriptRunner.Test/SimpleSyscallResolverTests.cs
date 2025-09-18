@@ -355,7 +355,7 @@ public class SimpleSyscallResolverTests
         SyscallDelegate del = (instance, args) => (int)args[0] + (int)args[1];
 
         // Act
-        var result = resolver.Register("custom_add", del);
+        var result = resolver.Register("custom_add", del, false);
 
         // Assert
         Assert.That(result, Is.SameAs(resolver));
@@ -372,10 +372,10 @@ public class SimpleSyscallResolverTests
         SyscallDelegate del2 = (instance, args) => 2;
 
         // Act
-        resolver.Register("duplicate", del1);
+        resolver.Register("duplicate", del1, false);
 
         // Assert
-        var ex = Assert.Throws<ArgumentException>(() => resolver.Register("duplicate", del2));
+        var ex = Assert.Throws<ArgumentException>(() => resolver.Register("duplicate", del2, false));
         Assert.That(ex.Message, Does.Contain("duplicate"));
         Assert.That(ex.ParamName, Is.EqualTo("name"));
     }
@@ -582,7 +582,7 @@ public class SimpleSyscallResolverTests
         var result = resolver.Invoke("return_null", []);
 
         // Assert
-        Assert.That(result, Is.Null);
+        Assert.That(result, Is.EqualTo(Nil.Shared));
     }
 
     [Test]
@@ -647,7 +647,7 @@ public class SimpleSyscallResolverTests
             }
             return sum;
         };
-        resolver.Register("sum_all", customMethod);
+        resolver.Register("sum_all", customMethod, false);
 
         // Act
         var result = resolver.Invoke("sum_all", [1, 2, 3, 4, 5]);
@@ -738,8 +738,8 @@ public class SimpleSyscallResolverTests
         SyscallDelegate stringToInt = (instance, args) => int.Parse((string)args[0]);
         SyscallDelegate floatAdd = (instance, args) => (float)args[0] + (float)args[1];
         
-        resolver.Register("string_to_int", stringToInt);
-        resolver.Register("float_add", floatAdd);
+        resolver.Register("string_to_int", stringToInt, false);
+        resolver.Register("float_add", floatAdd, false);
 
         // Act & Assert
         var intResult = resolver.Invoke("string_to_int", ["123"]);
@@ -793,7 +793,7 @@ public class SimpleSyscallResolverTests
             }
             return sum;
         };
-        resolver.Register("many_params", manyParams);
+        resolver.Register("many_params", manyParams, false);
 
         // Act
         var result = resolver.Invoke("many_params", [1, 2, 3, 4, 5]);
@@ -840,7 +840,7 @@ public class SimpleSyscallResolverTests
             }
             return nonNullCount;
         };
-        resolver.Register("count_non_null", mixedArgs);
+        resolver.Register("count_non_null", mixedArgs, false);
 
         // Act
         var result = resolver.Invoke("count_non_null", [1, Nil.Shared, "test", new Nil(), 42]);
@@ -912,7 +912,7 @@ public class SimpleSyscallResolverTests
 
         // Act & Assert
         var nullResult = resolver.Invoke("return_nullable_int", [true]);
-        Assert.That(nullResult, Is.Null);
+        Assert.That(nullResult, Is.EqualTo(Nil.Shared));
 
         var valueResult = resolver.Invoke("return_nullable_int", [false]);
         Assert.That(valueResult, Is.EqualTo(42));
@@ -977,7 +977,7 @@ public class SimpleSyscallResolverTests
             var a = (int)args[0];
             var b = (int)args[1];
             return a * b + 10;
-        });
+        }, false);
 
         // Act & Assert - test various operations
         Assert.That(resolver.Invoke("add", [5, 3]), Is.EqualTo(8));
@@ -1021,6 +1021,291 @@ public class SimpleSyscallResolverTests
         
         // Method without attribute - should not be registered
         public int NotRegisteredMethod() => 999;
+    }
+
+    #endregion
+}
+
+/// <summary>
+/// Dedicated test class for testing return value handling logic in SimpleSyscallResolver
+/// This tests the updated behavior for void, nullable and non-nullable return types
+/// </summary>
+[TestFixture]
+public class SimpleSyscallResolverReturnValueTests
+{
+    private SimpleSyscallResolver resolver;
+
+    [SetUp]
+    public void Setup()
+    {
+        resolver = new SimpleSyscallResolver();
+    }
+
+    #region Test Classes for Return Value Testing
+
+    /// <summary>
+    /// Test class with methods that return various types for testing return value handling
+    /// </summary>
+    public class ReturnValueTestClass
+    {
+        [SyscallImpl("return_int")]
+        public int ReturnInt(int value)
+        {
+            return value;
+        }
+
+        [SyscallImpl("return_string")]
+        public string ReturnString(string value)
+        {
+            return value;
+        }
+
+        [SyscallImpl("return_string_null")]
+        public string? ReturnStringNull()
+        {
+            return null;
+        }
+
+        [SyscallImpl("return_nullable_int_value")]
+        public int? ReturnNullableIntValue(int value)
+        {
+            return value;
+        }
+
+        [SyscallImpl("return_nullable_int_null")]
+        public int? ReturnNullableIntNull()
+        {
+            return null;
+        }
+
+        [SyscallImpl("return_nullable_bool_value")]
+        public bool? ReturnNullableBoolValue(bool value)
+        {
+            return value;
+        }
+
+        [SyscallImpl("return_nullable_bool_null")]
+        public bool? ReturnNullableBoolNull()
+        {
+            return null;
+        }
+
+        [SyscallImpl("return_void")]
+        public void ReturnVoid()
+        {
+            // This is a genuine void method
+        }
+    }
+
+    #endregion
+
+    #region Void Return Type Tests
+
+    [Test]
+    public void Invoke_VoidMethod_ShouldAlwaysReturnNull()
+    {
+        // Arrange
+        var instance = new ReturnValueTestClass();
+        resolver.Register(instance);
+
+        // Act
+        var result = resolver.Invoke("return_void", []);
+
+        // Assert - void methods should ALWAYS return null regardless of implementation
+        Assert.That(result, Is.Null, "Void methods should always return null");
+    }
+
+    [Test]
+    public void Invoke_CustomVoidDelegate_ShouldAlwaysReturnNull()
+    {
+        // Arrange - create a custom delegate that "returns" a value but is marked as void
+        SyscallDelegate customVoidDelegate = (instance, args) =>
+        {
+            // This delegate actually returns something, but we mark it as void
+            return "this should be ignored";
+        };
+
+        // Register with isVoid = true
+        resolver.Register("custom_void", customVoidDelegate, isVoid: true);
+
+        // Act
+        var result = resolver.Invoke("custom_void", []);
+
+        // Assert - should return null because it's marked as void, regardless of what delegate returns
+        Assert.That(result, Is.Null, "Custom void delegates should always return null regardless of actual return value");
+    }
+
+    [Test]
+    public void Invoke_CustomNonVoidDelegate_ShouldReturnActualValue()
+    {
+        // Arrange - create a custom delegate that returns a value and is marked as non-void
+        SyscallDelegate customDelegate = (instance, args) =>
+        {
+            return "actual return value";
+        };
+
+        // Register with isVoid = false
+        resolver.Register("custom_non_void", customDelegate, isVoid: false);
+
+        // Act
+        var result = resolver.Invoke("custom_non_void", []);
+
+        // Assert - should return the actual value
+        Assert.That(result, Is.EqualTo("actual return value"), "Non-void custom delegates should return their actual value");
+    }
+
+    #endregion
+
+    #region Non-Nullable Return Type Tests
+
+    [Test]
+    public void Invoke_NonNullableTypeReturningValue_ShouldReturnValue()
+    {
+        // Arrange
+        var instance = new ReturnValueTestClass();
+        resolver.Register(instance);
+
+        // Act
+        var intResult = resolver.Invoke("return_int", [42]);
+        var stringResult = resolver.Invoke("return_string", ["hello"]);
+
+        // Assert - non-nullable types returning actual values should return those values
+        Assert.That(intResult, Is.EqualTo(42), "Non-nullable int should return the actual value");
+        Assert.That(stringResult, Is.EqualTo("hello"), "Non-nullable string should return the actual value");
+    }
+
+    [Test]
+    public void Invoke_NonNullableTypeReturningNull_ShouldReturnNil()
+    {
+        // Arrange
+        var instance = new ReturnValueTestClass();
+        resolver.Register(instance);
+
+        // Act
+        var result = resolver.Invoke("return_string_null", []);
+
+        // Assert - non-nullable reference types returning null should convert to Nil
+        Assert.That(result, Is.EqualTo(Nil.Shared), "Non-nullable reference types returning null should convert to Nil");
+    }
+
+    [Test]
+    public void Invoke_CustomDelegateReturningNull_ShouldReturnNil()
+    {
+        // Arrange - custom delegate that returns null for non-nullable type
+        SyscallDelegate nullReturningDelegate = (instance, args) =>
+        {
+            return null; // Return null for a non-nullable reference type
+        };
+
+        resolver.Register("custom_null_return", nullReturningDelegate, isVoid: false);
+
+        // Act
+        var result = resolver.Invoke("custom_null_return", []);
+
+        // Assert - should convert null to Nil for non-nullable types
+        Assert.That(result, Is.EqualTo(Nil.Shared), "Custom delegates returning null should convert to Nil for non-nullable types");
+    }
+
+    #endregion
+
+    #region Nullable Return Type Tests
+
+    [Test]
+    public void Invoke_NullableTypeReturningValue_ShouldReturnValue()
+    {
+        // Arrange
+        var instance = new ReturnValueTestClass();
+        resolver.Register(instance);
+
+        // Act
+        var intResult = resolver.Invoke("return_nullable_int_value", [123]);
+        var boolResult = resolver.Invoke("return_nullable_bool_value", [true]);
+
+        // Assert - nullable types with values should return the actual values
+        Assert.That(intResult, Is.EqualTo(123), "Nullable int with value should return the actual value");
+        Assert.That(boolResult, Is.EqualTo(true), "Nullable bool with value should return the actual value");
+    }
+
+    [Test]
+    public void Invoke_NullableTypeReturningNull_ShouldReturnNil()
+    {
+        // Arrange
+        var instance = new ReturnValueTestClass();
+        resolver.Register(instance);
+
+        // Act
+        var intResult = resolver.Invoke("return_nullable_int_null", []);
+        var boolResult = resolver.Invoke("return_nullable_bool_null", []);
+
+        // Assert - nullable types returning null should convert to Nil
+        Assert.That(intResult, Is.EqualTo(Nil.Shared), "Nullable int returning null should convert to Nil");
+        Assert.That(boolResult, Is.EqualTo(Nil.Shared), "Nullable bool returning null should convert to Nil");
+    }
+
+    [Test]
+    public void Invoke_CustomDelegateWithNullableSemantics_ShouldHandleCorrectly()
+    {
+        // Arrange - simulate nullable behavior with custom delegates
+        SyscallDelegate nullableWithValueDelegate = (instance, args) =>
+        {
+            // Simulate a nullable type with a value
+            int? result = 456;
+            return result;
+        };
+
+        SyscallDelegate nullableWithNullDelegate = (instance, args) =>
+        {
+            // Simulate a nullable type with null
+            int? result = null;
+            return result;
+        };
+
+        resolver.Register("nullable_with_value", nullableWithValueDelegate, isVoid: false);
+        resolver.Register("nullable_with_null", nullableWithNullDelegate, isVoid: false);
+
+        // Act
+        var valueResult = resolver.Invoke("nullable_with_value", []);
+        var nullResult = resolver.Invoke("nullable_with_null", []);
+
+        // Assert
+        Assert.That(valueResult, Is.EqualTo(456), "Nullable delegate returning value should return the actual value");
+        Assert.That(nullResult, Is.EqualTo(Nil.Shared), "Nullable delegate returning null should convert to Nil");
+    }
+
+    #endregion
+
+    #region Comprehensive Return Value Tests
+
+    [Test]
+    public void Invoke_AllReturnTypes_ShouldBehaveCorrectly()
+    {
+        // This comprehensive test verifies all return type behaviors in one test
+        
+        // Arrange
+        var instance = new ReturnValueTestClass();
+        resolver.Register(instance);
+
+        // Add custom delegates for comprehensive testing
+        resolver.Register("custom_void_returning_value", (instance, args) => "ignored", isVoid: true);
+        resolver.Register("custom_non_void_returning_null", (instance, args) => null, isVoid: false);
+        resolver.Register("custom_nullable_returning_value", (instance, args) => (int?)789, isVoid: false);
+
+        // Act & Assert - Void methods (highest priority)
+        Assert.That(resolver.Invoke("return_void", []), Is.Null, "Void method should return null");
+        Assert.That(resolver.Invoke("custom_void_returning_value", []), Is.Null, "Custom void should return null regardless of delegate return");
+
+        // Act & Assert - Non-nullable types
+        Assert.That(resolver.Invoke("return_int", [100]), Is.EqualTo(100), "Non-nullable int with value should return value");
+        Assert.That(resolver.Invoke("return_string", ["test"]), Is.EqualTo("test"), "Non-nullable string with value should return value");
+        Assert.That(resolver.Invoke("return_string_null", []), Is.EqualTo(Nil.Shared), "Non-nullable string returning null should return Nil");
+        Assert.That(resolver.Invoke("custom_non_void_returning_null", []), Is.EqualTo(Nil.Shared), "Custom delegate returning null should return Nil");
+
+        // Act & Assert - Nullable types
+        Assert.That(resolver.Invoke("return_nullable_int_value", [200]), Is.EqualTo(200), "Nullable int with value should return value");
+        Assert.That(resolver.Invoke("return_nullable_int_null", []), Is.EqualTo(Nil.Shared), "Nullable int returning null should return Nil");
+        Assert.That(resolver.Invoke("return_nullable_bool_value", [false]), Is.EqualTo(false), "Nullable bool with value should return value");
+        Assert.That(resolver.Invoke("return_nullable_bool_null", []), Is.EqualTo(Nil.Shared), "Nullable bool returning null should return Nil");
+        Assert.That(resolver.Invoke("custom_nullable_returning_value", []), Is.EqualTo(789), "Custom nullable with value should return value");
     }
 
     #endregion

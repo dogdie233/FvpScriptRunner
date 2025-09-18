@@ -1,4 +1,3 @@
-using FvpScriptRunner.Exceptions;
 using FvpScriptRunner.IO;
 using FvpScriptRunner.Runtime;
 using FvpScriptRunner.Services;
