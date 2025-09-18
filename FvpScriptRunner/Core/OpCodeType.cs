@@ -1,4 +1,4 @@
-namespace FvpScriptRunner;
+namespace FvpScriptRunner.Core;
 
 public enum OpCodeType : byte
 {

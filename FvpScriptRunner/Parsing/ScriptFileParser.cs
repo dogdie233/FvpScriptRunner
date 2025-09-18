@@ -1,8 +1,13 @@
-﻿using FvpScriptRunner.Operands;
+using FvpScriptRunner.Core;
+using FvpScriptRunner.IO;
+using FvpScriptRunner.Runtime;
 
-namespace FvpScriptRunner;
+namespace FvpScriptRunner.Parsing;
 
-public static class HcbParser
+/// <summary>
+/// Parser for script files (formerly HcbParser, now with clearer naming)
+/// </summary>
+public static class ScriptFileParser
 {
     public static ScriptMetadata ParseMetadata(Reader reader)
     {

@@ -1,6 +1,6 @@
-namespace FvpScriptRunner;
+namespace FvpScriptRunner.Services;
 
-public interface ISyscallInvoker
+public interface ISyscallResolver
 {
-    object? Invoke(object[] args);
+    object? Invoke(string name, object[] args);
 }

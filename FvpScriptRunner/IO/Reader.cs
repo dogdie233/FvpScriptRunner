@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace FvpScriptRunner;
+namespace FvpScriptRunner.IO;
 
 public class Reader
 {

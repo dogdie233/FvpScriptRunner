@@ -1,7 +1,8 @@
 using System.Runtime.InteropServices;
-using FvpScriptRunner.Primitive;
+using FvpScriptRunner.Exceptions;
+using FvpScriptRunner.Runtime;
 
-namespace FvpScriptRunner;
+namespace FvpScriptRunner.Core;
 
 public class CallStack
 {

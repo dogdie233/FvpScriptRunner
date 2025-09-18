@@ -1,8 +1,8 @@
-namespace FvpScriptRunner.Primitive;
+namespace FvpScriptRunner.Runtime;
 
 public readonly struct Nil : IEquatable<Nil>
 {
-    public static object Shared { get; } = new Nil();
+    public readonly static object Shared = new Nil();
 
     public override string ToString() => "nil";
 

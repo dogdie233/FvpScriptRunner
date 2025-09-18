@@ -1,14 +1,16 @@
-using System.Numerics;
-using FvpScriptRunner.Primitive;
+using FvpScriptRunner.Exceptions;
+using FvpScriptRunner.IO;
+using FvpScriptRunner.Runtime;
+using FvpScriptRunner.Services;
 
-namespace FvpScriptRunner;
+namespace FvpScriptRunner.Core;
 
 public class ScriptContext
 {
     private Reader Reader { get; }
     private ScriptMetadata Metadata { get; }
     private CallStack Stack { get; } = new();
-    private ISyscallInvoker SyscallInvoker { get; }
+    private ISyscallResolver SyscallResolver { get; }
 
     private object? ReturnValue { get; set; } = null;
     private object?[] GlobalVars { get; }
@@ -19,11 +21,11 @@ public class ScriptContext
         set => Reader.SeekTo(value);
     }
 
-    public ScriptContext(Reader reader, ScriptMetadata metadata, ISyscallInvoker syscallInvoker)
+    public ScriptContext(Reader reader, ScriptMetadata metadata, ISyscallResolver syscallInvoker)
     {
         Reader = reader;
         Metadata = metadata;
-        SyscallInvoker = syscallInvoker;
+        SyscallResolver = syscallInvoker;
         GlobalVars = new object?[metadata.GlobalCount];
 
         PC = metadata.EntryPointAddress;
@@ -129,7 +131,7 @@ public class ScriptContext
         for (var i = 0; i < syscall.ArgumentCount; i++)
             args[syscall.ArgumentCount - i - 1] = Stack.Pop();
 
-        ReturnValue = SyscallInvoker.Invoke(args);
+        ReturnValue = SyscallResolver.Invoke(syscall.Name, args);
     }
 
     private void HandleRet()
